@@ -101,13 +101,19 @@ void main() {
 // Shared by the vertex shader (relief) and the fragment shader (colour), so the
 // dye is advected per pixel rather than interpolated between mesh vertices.
 const flowGLSL = /* glsl */ `
-const float GOLDEN = 2.39996323;
+// Eddy centres and strengths depend only on time, so they're computed once per
+// frame on the CPU (vortexParams() below) instead of for every vertex and pixel:
+// uVort[i] = (centre.x, centre.y, signed strength before the uSwirl/uDetail gates).
+uniform vec3 uVort[26];
 
 // One vortex = a twist map about c. Twist maps are area-preserving and
 // invertible, so composing them is an incompressible stirring of the plane.
+// Beyond 3 radii the twist is < 0.0004 rad — invisible — so it's skipped.
 void vortex(inout vec2 p, inout float core, inout float vort, vec2 c, float R, float s) {
   vec2 r = p - c;
-  float k = exp(-dot(r, r) / (R * R));
+  float d2 = dot(r, r) / (R * R);
+  if (d2 > 9.0) return;
+  float k = exp(-d2);
   float a = s * k;
   float ca = cos(a), sa = sin(a);
   p = c + vec2(ca * r.x - sa * r.y, sa * r.x + ca * r.y);
@@ -121,34 +127,48 @@ vec2 flowMap(vec2 q, float t, out float core, out float vort) {
   vec2 p = q;
   core = 0.0;
   vort = 0.0;
-  for (int i = 0; i < 4; i++) {
-    float fi = float(i);
-    float ang = fi * GOLDEN + 0.6;
-    vec2 c = 2.3 * vec2(cos(ang), sin(ang)) + 0.45 * vec2(sin(t * 0.21 + fi), cos(t * 0.17 + 1.7 * fi));
-    float s = (mod(fi, 2.0) < 1.0 ? 1.0 : -1.0) * (2.6 + 0.5 * sin(t * 0.33 + fi));
-    vortex(p, core, vort, c, 1.75, s * uSwirl);
-  }
+  for (int i = 0; i < 4; i++) vortex(p, core, vort, uVort[i].xy, 1.75, uVort[i].z * uSwirl);
   if (uDetail > 0.0005) {
-  for (int i = 0; i < 8; i++) {
-    float fi = float(i);
-    float ang = fi * GOLDEN + 2.1;
-    float rad = 1.1 + 2.9 * sqrt((fi + 0.5) / 8.0);
-    vec2 c = rad * vec2(cos(ang), sin(ang)) + 0.35 * vec2(sin(t * 0.37 + 2.0 * fi), cos(t * 0.31 + fi));
-    float s = (mod(fi, 2.0) < 1.0 ? -1.0 : 1.0) * (2.1 + 0.6 * sin(t * 0.5 + fi));
-    vortex(p, core, vort, c, 0.85, s * uSwirl * uDetail);
-  }
-  for (int i = 0; i < 14; i++) {
-    float fi = float(i);
-    float ang = fi * GOLDEN + 4.0;
-    float rad = 0.4 + 3.9 * sqrt((fi + 0.5) / 14.0);
-    vec2 c = rad * vec2(cos(ang), sin(ang)) + 0.25 * vec2(sin(t * 0.6 + fi), cos(t * 0.55 + 3.0 * fi));
-    float s = (mod(fi, 2.0) < 1.0 ? 1.0 : -1.0) * (1.3 + 0.4 * sin(t * 0.8 + fi));
-    vortex(p, core, vort, c, 0.42, s * uSwirl * uDetail * uDetail);
-  }
+    float s2 = uSwirl * uDetail, s3 = s2 * uDetail;
+    for (int i = 4; i < 12; i++) vortex(p, core, vort, uVort[i].xy, 0.85, uVort[i].z * s2);
+    for (int i = 12; i < 26; i++) vortex(p, core, vort, uVort[i].xy, 0.42, uVort[i].z * s3);
   }
   return p;
 }
 `;
+
+// CPU side of flowMap: the eddies' centres and strengths at time t, written
+// into `out` (an array of 26 THREE.Vector3). Same formulas the shader used.
+const GOLDEN = 2.39996323;
+export function vortexParams(t, out) {
+  let k = 0;
+  for (let i = 0; i < 4; i++, k++) {
+    const ang = i * GOLDEN + 0.6;
+    out[k].set(
+      2.3 * Math.cos(ang) + 0.45 * Math.sin(t * 0.21 + i),
+      2.3 * Math.sin(ang) + 0.45 * Math.cos(t * 0.17 + 1.7 * i),
+      (i % 2 === 0 ? 1 : -1) * (2.6 + 0.5 * Math.sin(t * 0.33 + i)),
+    );
+  }
+  for (let i = 0; i < 8; i++, k++) {
+    const ang = i * GOLDEN + 2.1;
+    const rad = 1.1 + 2.9 * Math.sqrt((i + 0.5) / 8);
+    out[k].set(
+      rad * Math.cos(ang) + 0.35 * Math.sin(t * 0.37 + 2 * i),
+      rad * Math.sin(ang) + 0.35 * Math.cos(t * 0.31 + i),
+      (i % 2 === 0 ? -1 : 1) * (2.1 + 0.6 * Math.sin(t * 0.5 + i)),
+    );
+  }
+  for (let i = 0; i < 14; i++, k++) {
+    const ang = i * GOLDEN + 4.0;
+    const rad = 0.4 + 3.9 * Math.sqrt((i + 0.5) / 14);
+    out[k].set(
+      rad * Math.cos(ang) + 0.25 * Math.sin(t * 0.6 + i),
+      rad * Math.sin(ang) + 0.25 * Math.cos(t * 0.55 + 3 * i),
+      (i % 2 === 0 ? 1 : -1) * (1.3 + 0.4 * Math.sin(t * 0.8 + i)),
+    );
+  }
+}
 
 export const fieldVertex = /* glsl */ `
 uniform float uTime;

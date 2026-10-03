@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { planeVertex, planeFragment, fieldVertex, fieldFragment } from './shaders.js';
+import { planeVertex, planeFragment, fieldVertex, fieldFragment, vortexParams } from './shaders.js';
 import { SCHEME, bakeColormap } from './colormaps.js';
 import { surfaceParams, cameraParams, timeRate, descentProgress, overlayParams, sideWeight, textBand, zoomWeight, PMAX } from './phases.js';
 import { loss, descentPath, LOSS_SCALE } from './landscape.js';
@@ -88,6 +88,7 @@ export default class SurfaceScene {
       uMapTurb: { value: this.textures[0] },
       uMapLoss: { value: this.textures[1] },
       uCamPos: { value: new THREE.Vector3() },
+      uVort: { value: Array.from({ length: 26 }, () => new THREE.Vector3()) },
     };
 
     // the coordinate plane: flat, fixed, drawn first and never occluding the
@@ -242,6 +243,7 @@ export default class SurfaceScene {
     if (this.running) return;
     this.running = true;
     this._last = performance.now();
+    this._drawnAt = 0;
     this._raf = requestAnimationFrame(this._loop);
   }
 
@@ -273,7 +275,12 @@ export default class SurfaceScene {
     this.time += dt * rate;
 
     // nothing moves → don't spend a frame
-    if (!this.dirty && prev === p && rate < 1e-4) return;
+    const moving = this.dirty || prev !== p;
+    if (!moving && rate < 1e-4) return;
+    // while only the flow is animating (no scrolling), ~60 fps is plenty:
+    // on 120 Hz screens this halves the GPU work of an idle hero
+    if (!moving && now - this._drawnAt < 15) return;
+    this._drawnAt = now;
     this.dirty = false;
 
     this._update(p);
@@ -327,6 +334,7 @@ export default class SurfaceScene {
     const s = surfaceParams(p);
     for (const k in s) u[k].value = s[k];
     u.uTime.value = this.time;
+    if (u.uSwirl.value > 0.0005) vortexParams(this.time, u.uVort.value);
     // the fluid layer (and the descent drawn on it) is invisible at the start and
     // in the 2D ending: don't even run its ~90k vertices then
     this.mesh.visible = u.uFluid.value > 0.002;
