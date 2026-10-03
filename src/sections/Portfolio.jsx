@@ -51,7 +51,7 @@ function Caption({ g }) {
     <figcaption>
       {g.caption}
       {g.link && (
-        <a className="shot-more" href={g.link.href} target="_blank" rel="noreferrer">{g.link.label} <span aria-hidden="true">↗</span></a>
+        <a className="shot-more" href={g.link.href} target="_blank" rel="noreferrer">{g.link.label}</a>
       )}
     </figcaption>
   );
@@ -136,7 +136,7 @@ function Project({ p, i }) {
             <ul>{p.contribution.map((c, j) => <li key={j}>{c}</li>)}</ul>
             <ul className="tags">{p.tech.map((t) => <li key={t}>{t}</li>)}</ul>
             <div className="links">
-              {p.links.map((l) => <a key={l.label} href={l.href} target="_blank" rel="noreferrer">{l.label} <span aria-hidden="true">↗</span></a>)}
+              {p.links.map((l) => <a key={l.label} href={l.href} target="_blank" rel="noreferrer">{l.label}</a>)}
             </div>
           </div>
         </div>
@@ -205,9 +205,9 @@ function Contact() {
         <p className="lead">Get in touch about research, internships, or projects.</p>
         <a className="contact-email" href={`mailto:${profile.email}`}>{profile.email}</a>
         <ul className="contact-links">
-          <li><a href={profile.github} target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></li>
-          <li><a href={profile.linkedin} target="_blank" rel="noreferrer">LinkedIn <span aria-hidden="true">↗</span></a></li>
-          {profile.resume && <li><a href={profile.resume} target="_blank" rel="noreferrer">Resume <span aria-hidden="true">↗</span></a></li>}
+          <li><a href={profile.github} target="_blank" rel="noreferrer">GitHub</a></li>
+          <li><a href={profile.linkedin} target="_blank" rel="noreferrer">LinkedIn</a></li>
+          {profile.resume && <li><a href={profile.resume} target="_blank" rel="noreferrer">Resume</a></li>}
         </ul>
       </div>
     </section>
