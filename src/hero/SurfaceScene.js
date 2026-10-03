@@ -6,7 +6,7 @@ import { loss, descentPath, LOSS_SCALE } from './landscape.js';
 
 const ACCENT = new THREE.Color(SCHEME.particle);
 const ZOOM_START = 1.28; // progress at which the final zoom begins (see phases.js)
-const MAX_RATE = 0.4; // max progress per second — a flick can't skip a phase
+const MAX_RATE = 0.6; // max progress per second — a flick can't skip a phase
 const SMOOTHING = 5.0;
 
 /**

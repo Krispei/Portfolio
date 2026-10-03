@@ -1,29 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { profile, show, about, projects, experience, skills } from '../content.js';
-
-// one observer for every .reveal element
-function useReveal() {
-  const root = useRef(null);
-  useEffect(() => {
-    const els = root.current.querySelectorAll('.reveal');
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) {
-          e.target.classList.add('in');
-          io.unobserve(e.target);
-        }
-      }),
-      { rootMargin: '0px 0px -8% 0px' },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, []);
-  return root;
-}
 
 function SectionHead({ title, id }) {
   return (
-    <header className="sec-head reveal">
+    <header className="sec-head">
       <h2 id={id}>{title}</h2>
     </header>
   );
@@ -33,11 +13,11 @@ function About() {
   return (
     <section className="sec" aria-labelledby="about">
       <SectionHead title="About" id="about" />
-      <div className="about-grid reveal">
+      <div className="about-grid">
         {about.body.map((p, i) => <p key={i} className="body">{p}</p>)}
       </div>
       {about.photos?.length > 0 && (
-        <div className="about-photos reveal">
+        <div className="about-photos">
           {about.photos.map((ph) => (
             <figure key={ph.src} className="shot">
               <img src={ph.src} alt={ph.alt || ph.caption} width={ph.width} height={ph.height} loading="lazy" />
@@ -133,23 +113,23 @@ function Gallery({ items, id }) {
 function Project({ p, i }) {
   return (
     <article className="project">
-      <div className="project-meta reveal">
+      <div className="project-meta">
         <span className="project-n">{String(i + 1).padStart(2, '0')}</span>
         <span className="project-kicker">{p.kicker}</span>
         {p.year && <span className="project-year">{p.year}</span>}
       </div>
       <div className="project-main">
-        <h3 className="reveal">{p.title}</h3>
-        <p className="project-summary reveal">{p.summary}</p>
+        <h3>{p.title}</h3>
+        <p className="project-summary">{p.summary}</p>
 
-        <dl className="metrics reveal">
+        <dl className="metrics">
           {p.metrics.map(([v, k]) => (
             <div key={k}><dd>{v}</dd><dt>{k}</dt></div>
           ))}
         </dl>
 
         <div className="project-body">
-          <div className="reveal">
+          <div>
             <h4>Problem</h4>
             <p>{p.problem}</p>
             <h4>Contribution</h4>
@@ -180,7 +160,7 @@ function Experience() {
       <SectionHead title="Experience" id="experience" />
       <ol className="timeline">
         {experience.map((e, ei) => (
-          <li key={e.role + e.when} className="reveal">
+          <li key={e.role + e.when}>
             <div className="exp-head">
               <div className="exp-id">
                 <h3>{e.role}</h3>
@@ -207,7 +187,7 @@ function Skills() {
       <SectionHead title="Skills" id="skills" />
       <div className="skills">
         {skills.map((s) => (
-          <div key={s.group} className="reveal">
+          <div key={s.group}>
             <h3>{s.group}</h3>
             <ul>{s.items.map((it) => <li key={it}>{it}</li>)}</ul>
           </div>
@@ -221,7 +201,7 @@ function Contact() {
   return (
     <section className="sec contact" aria-labelledby="contact">
       <SectionHead title="Contact" id="contact" />
-      <div className="reveal">
+      <div>
         <p className="lead">Get in touch about research, internships, or projects.</p>
         <a className="contact-email" href={`mailto:${profile.email}`}>{profile.email}</a>
         <ul className="contact-links">
@@ -235,9 +215,8 @@ function Contact() {
 }
 
 export default function Portfolio() {
-  const root = useReveal();
   return (
-    <main ref={root} className="portfolio">
+    <main className="portfolio">
       <Experience />
       {show.projects && <Projects />}
       <Skills />

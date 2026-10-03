@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { overlayParams, PMAX, progressAt, ss } from './phases.js';
 
-const SCROLL_VH_PER_P = 500; // scroll distance per unit of progress
-const END = 0.96; // the last 4% of the hero holds the final (white) screen
+const SCROLL_VH_PER_P = 300; // scroll distance per unit of progress
+const END = 0.98; // the last 4% of the hero holds the final (white) screen
 const HERO_VH = Math.round((PMAX * SCROLL_VH_PER_P) / END + 100);
 const DISPOSE_AFTER_MS = 4000;
 const MAX_LEAD = 0.06; // how far scroll may run ahead of the rendered progress
