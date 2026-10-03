@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { overlayParams, PMAX, ss } from './phases.js';
+import { overlayParams, PMAX, progressAt, ss } from './phases.js';
 
 const SCROLL_VH_PER_P = 500; // scroll distance per unit of progress
 const END = 0.96; // the last 4% of the hero holds the final (white) screen
@@ -98,7 +98,7 @@ export default function Hero() {
       const rect = section.getBoundingClientRect();
       const span = rect.height - window.innerHeight;
       if (span <= 0) return 1;
-      return PMAX * Math.min(1, Math.max(0, -rect.top / span) / END);
+      return progressAt(Math.max(0, -rect.top / span) / END); // paced: see HOLDS in phases.js
     };
 
     // write a style only when its value changes: unchanged writes still make
@@ -279,7 +279,7 @@ export default function Hero() {
         </div>
 
         <div className="hero-text hero-physics" ref={set('physics')}>
-          <h1>I study Computational Physics</h1>
+          <h1>I Study Computational Physics</h1>
           <p>At Stanford University</p>
         </div>
 

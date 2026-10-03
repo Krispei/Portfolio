@@ -18,6 +18,42 @@ export const ss = (a, b, x) => {
 };
 const lerp = (a, b, t) => a + (b - a) * t;
 export const PMAX = 1.5; // total length of the hero sequence
+
+// ── Scroll pacing ───────────────────────────────────────────────────────────
+// Scrolling doesn't move through progress at an even rate: the main
+// presentation moments (HOLDS) take HOLD_WEIGHT× as much scrolling per unit of
+// progress as the transitions between them, so the transitions go by quickly
+// and the moments you're meant to look at stay on screen longer.
+const HOLDS = [
+  [0.46, 0.62], // turbulence + "I study Computational Physics"
+  [0.88, 1.04], // gradient descent + "I'm interested in AI/ML"
+  [1.2, 1.28], //  empty grid + "Let's zoom in…"
+];
+const HOLD_WEIGHT = 3;
+
+// piecewise-linear map: knots of (cumulative scroll, progress)
+const PACE = (() => {
+  const pts = [0];
+  HOLDS.forEach(([a, b]) => pts.push(a, b));
+  pts.push(PMAX);
+  const knots = [[0, 0]];
+  for (let i = 1; i < pts.length; i++) {
+    const w = i % 2 === 0 ? HOLD_WEIGHT : 1; // even segments are holds
+    knots.push([knots[i - 1][0] + (pts[i] - pts[i - 1]) * w, pts[i]]);
+  }
+  const total = knots[knots.length - 1][0];
+  return knots.map(([s, p]) => [s / total, p]);
+})();
+
+// u ∈ [0, 1] — how far through the hero's scroll — → progress ∈ [0, PMAX]
+export function progressAt(u) {
+  const x = Math.min(1, Math.max(0, u));
+  for (let i = 1; i < PACE.length; i++) {
+    const [s0, p0] = PACE[i - 1], [s1, p1] = PACE[i];
+    if (x <= s1) return p0 + ((x - s0) / (s1 - s0 || 1)) * (p1 - p0);
+  }
+  return PMAX;
+}
 const DEG = Math.PI / 180;
 
 export function surfaceParams(p) {

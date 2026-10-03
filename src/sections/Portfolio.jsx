@@ -31,7 +31,7 @@ function SectionHead({ title, id }) {
 
 function About() {
   return (
-    <section className="sec sec-center" aria-labelledby="about">
+    <section className="sec" aria-labelledby="about">
       <SectionHead title="About" id="about" />
       <div className="about-grid reveal">
         {about.body.map((p, i) => <p key={i} className="body">{p}</p>)}
@@ -203,7 +203,7 @@ function Experience() {
 
 function Skills() {
   return (
-    <section className="sec sec-center" aria-labelledby="skills">
+    <section className="sec" aria-labelledby="skills">
       <SectionHead title="Skills" id="skills" />
       <div className="skills">
         {skills.map((s) => (
@@ -240,8 +240,8 @@ export default function Portfolio() {
     <main ref={root} className="portfolio">
       <Experience />
       {show.projects && <Projects />}
-      <About />
       <Skills />
+      <About />
       <Contact />
       <footer className="foot">
         <span>© {new Date().getFullYear()} {profile.name}</span>

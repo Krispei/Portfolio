@@ -202,18 +202,12 @@ ul, ol { list-style: none; }
 .lead { font: 300 clamp(22px, 2.2vw, 30px)/1.32 var(--serif); letter-spacing: -0.01em; max-width: 30ch; }
 .body { margin-top: 22px; color: var(--ink-2); max-width: 62ch; }
 
+/* About: left-aligned with Experience and Skills. One shared text width;
+   `pretty` avoids stray one-word last lines */
 .about-grid { padding-left: 200px; }
-/* the About section is centred: title, text and photos */
-.sec-center .sec-head { padding-left: 0; text-align: center; }
-/* one shared text width (in px, so the large intro line and the body copy match);
-   `pretty` avoids stray one-word last lines without squeezing the lines narrower */
-.sec-center .about-grid { padding-left: 0; text-align: center; max-width: 640px; margin-left: auto; margin-right: auto; }
-.sec-center .body { max-width: none; text-wrap: pretty; }
-.sec-center .body:first-child { margin-top: 0; }
-/* Skills: same centred treatment — the grid sits in the middle of the page, text centred in each column */
-.sec-center .skills { padding-left: 0; max-width: 980px; margin-left: auto; margin-right: auto; text-align: center; }
-.about-photos { display: flex; flex-direction: column; gap: 36px; width: 100%; max-width: 420px; margin: 56px auto 0; } /* centred in the page */
-.about-photos figcaption { text-align: center; }
+.about-grid .body { max-width: 640px; text-wrap: pretty; }
+.about-grid .body:first-child { margin-top: 0; }
+.about-photos { display: flex; flex-direction: column; gap: 36px; max-width: 420px; margin: 56px 0 0 200px; }
 /* photos keep their own shape: width fills the column, height follows the image's ratio */
 .about-photos img { width: 100%; height: auto; object-fit: initial; }
 
@@ -347,6 +341,7 @@ ul, ol { list-style: none; }
 /* responsive */
 @media (max-width: 1080px) {
   .about-grid, .timeline, .skills, .contact > div { padding-left: 0; }
+  .about-photos { margin-left: 0; }
   .sec-head { padding-left: 0; }
   .project { grid-template-columns: 120px 1fr; }
   .skills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
