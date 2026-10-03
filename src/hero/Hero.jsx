@@ -101,17 +101,33 @@ export default function Hero() {
       return PMAX * Math.min(1, Math.max(0, -rect.top / span) / END);
     };
 
+    // write a style only when its value changes: unchanged writes still make
+    // the browser re-check styles every frame
+    const last = new WeakMap(); // node → { prop: value }
+    const put = (node, prop, v) => {
+      if (!node) return;
+      let seen = last.get(node);
+      if (!seen) last.set(node, (seen = {}));
+      if (seen[prop] === v) return;
+      seen[prop] = v;
+      node.style[prop] = v;
+    };
+    const op = (v) => (v < 0.002 ? '0' : v > 0.998 ? '1' : v.toFixed(3));
+
     const onFrame = ({ progress: p, zoomScale = 1, cx = 0, cy = 0 }) => {
       const o = overlayParams(p);
-      el.hint.style.opacity = o.hint;
-      el.physics.style.opacity = o.physics;
-      el.ai.style.opacity = o.ai;
-      if (el.bar) el.bar.style.transform = `scaleX(${Math.min(1, p / PMAX)})`;
+      put(el.hint, 'opacity', op(o.hint));
+      put(el.physics, 'opacity', op(o.physics));
+      put(el.ai, 'opacity', op(o.ai));
+      put(el.bar, 'transform', `scaleX(${Math.min(1, p / PMAX).toFixed(4)})`);
       // the header zooms with the grid: it magnifies about the graphic's centre,
       // so it grows and flies off the top of the screen as the camera dollies in
-      el.zoom.style.opacity = o.zoom * (1 - ss(2.2, 5, zoomScale));
-      el.zoom.style.transformOrigin = `${cx}px ${cy - zoomTop}px`;
-      el.zoom.style.transform = zoomScale > 1.001 ? `scale(${zoomScale})` : 'none'; // fades in place, no slide
+      const zo = op(o.zoom * (1 - ss(2.2, 5, zoomScale)));
+      put(el.zoom, 'opacity', zo);
+      if (zo !== '0') {
+        put(el.zoom, 'transformOrigin', `${cx.toFixed(1)}px ${(cy - zoomTop).toFixed(1)}px`);
+        put(el.zoom, 'transform', zoomScale > 1.001 ? `scale(${zoomScale.toFixed(4)})` : 'none'); // fades in place, no slide
+      }
     };
 
     const ensureScene = async () => {
@@ -122,8 +138,9 @@ export default function Hero() {
         canvas.className = 'hero-canvas';
         canvas.setAttribute('aria-hidden', 'true');
         stage.prepend(canvas);
+        let s;
         try {
-          scene = new SurfaceScene(canvas, { reducedMotion: reduced, onFrame });
+          s = scene = new SurfaceScene(canvas, { reducedMotion: reduced, onFrame });
         } catch {
           canvas.remove();
           glFailed = true;
@@ -131,13 +148,17 @@ export default function Hero() {
           setNoGL(true);
           return;
         }
-        scene.setLayout(layout);
-        scene.setTarget(scrollTarget());
-        scene.progress = scene.target; // arrive at the right state on (re)load
-        if (reduced) scene.renderOnce();
-        else if (visible && !document.hidden) scene.start();
-        requestAnimationFrame(() => canvas.classList.add('ready'));
-        loading = null;
+        // show it only once its shaders are compiled, so the first frames don't stall
+        return s.ready.then(() => {
+          loading = null;
+          if (scene !== s) return; // released while compiling
+          s.setLayout(layout);
+          s.setTarget(scrollTarget());
+          s.progress = s.target; // arrive at the right state on (re)load
+          if (reduced) s.renderOnce();
+          else if (visible && !document.hidden) s.start();
+          requestAnimationFrame(() => canvas.classList.add('ready'));
+        });
       });
       return loading;
     };
@@ -183,7 +204,12 @@ export default function Hero() {
       if ((dy > 0 && lead > MAX_LEAD) || (dy < 0 && lead < -MAX_LEAD)) return;
       window.scrollBy(0, Math.max(-MAX_WHEEL_PX, Math.min(MAX_WHEEL_PX, dy)));
     };
+    // phones fire resize as the address bar slides in and out, but the stage
+    // (100svh) doesn't change size then: skip the relayout and the redraw
+    let stageW = stage.clientWidth, stageH = stage.clientHeight;
     const onResize = () => {
+      if (stage.clientWidth === stageW && stage.clientHeight === stageH) return;
+      stageW = stage.clientWidth; stageH = stage.clientHeight;
       computeLayout();
       if (!scene) return;
       scene.resize();

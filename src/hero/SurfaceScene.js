@@ -42,7 +42,9 @@ export default class SurfaceScene {
     // high-density screen the pixels are too small to show jagged edges anyway.
     // The grid and contours are anti-aliased analytically in the shader.
     const antialias = (window.devicePixelRatio || 1) < 1.5;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias, alpha: false, powerPreference: 'high-performance' });
+    // 'default' GPU: asking for 'high-performance' makes dual-GPU Macs switch to
+    // the discrete GPU, which can flicker the whole screen; this scene is light
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias, alpha: false, powerPreference: 'default' });
     this.renderer.setClearColor(0xffffff, 1);
     this.maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2);
     this.dpr = this.maxDpr;
@@ -177,6 +179,31 @@ export default class SurfaceScene {
     [this.trail, this.ticks, this.ball, this.ring].forEach((o) => { o.renderOrder = 2; });
 
     this.resize();
+    this._warmup();
+  }
+
+  // Compile every shader and upload every buffer and texture up front, instead
+  // of the first time each object appears (which stalled a frame when the
+  // fluid, and later the descent, came in). Shaders compile in the background
+  // where the browser supports it; `ready` resolves once they're done and one
+  // frame with everything drawn has uploaded the rest. Objects hidden at this
+  // point are fully transparent, so that frame looks like a normal one.
+  _warmup() {
+    this._update(this.progress);
+    const objs = [this.mesh, this.trail, this.ticks, this.ball, this.ring];
+    const withAll = (fn) => {
+      const shown = objs.map((o) => o.visible);
+      objs.forEach((o) => { o.visible = true; });
+      try { return fn(); } finally { objs.forEach((o, i) => { o.visible = shown[i]; }); }
+    };
+    this.ready = withAll(() => this.renderer.compileAsync(this.scene, this.camera))
+      .catch(() => {})
+      .then(() => {
+        if (this.disposed) return;
+        this._update(this.progress);
+        withAll(() => this.renderer.render(this.scene, this.camera));
+        this.dirty = true;
+      });
   }
 
   resize() {
@@ -184,12 +211,18 @@ export default class SurfaceScene {
     // the text on narrow ones); render at exactly that size
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (!w || !h) return;
+    // Resizing a canvas wipes it (to black, as it has no alpha), so do it only
+    // when something really changed — phones fire resize events as the address
+    // bar slides — and redraw straight away so the wiped buffer is never shown.
+    if (w === this.width && h === this.height && this.dpr === this._sizedDpr) return;
     this.width = w;
     this.height = h;
+    this._sizedDpr = this.dpr;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.dirty = true;
+    if (this._drawn) this.renderOnce();
   }
 
   setLayout(layout) {
@@ -245,6 +278,7 @@ export default class SurfaceScene {
 
     this._update(p);
     this.renderer.render(this.scene, this.camera);
+    this._drawn = true;
     this._adapt(dt);
   }
 
@@ -353,28 +387,39 @@ export default class SurfaceScene {
     this.onFrame?.({ progress: p, zoomScale, cx, cy });
   }
 
-  // drop resolution if frames are slow; recover when there is headroom
+  // Drop resolution if frames are slow; recover when there is headroom. Each
+  // change reallocates the canvas, so it must not flip back and forth: a
+  // resolution that proved too slow is never tried again (the ceiling comes
+  // down with it), and a change is followed by a settling period.
   _adapt(dt) {
+    if (this._settle > 0) { this._settle--; return; }
     this.frameTimes.push(dt * 1000);
-    if (this.frameTimes.length < 45) return;
+    if (this.frameTimes.length < 60) return;
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.frameTimes.length = 0;
     let next = this.dpr;
-    if (avg > 24 && this.dpr > 0.85) next = Math.max(0.85, this.dpr - 0.25);
-    else if (avg < 14 && this.dpr < this.maxDpr) next = Math.min(this.maxDpr, this.dpr + 0.25);
+    if (avg > 24 && this.dpr > 0.85) {
+      next = Math.max(0.85, this.dpr - 0.25);
+      this.maxDpr = next; // don't climb back to the slow one
+    } else if (avg < 14 && this.dpr + 0.25 <= this.maxDpr) {
+      next = this.dpr + 0.25;
+    }
     if (next !== this.dpr) {
       this.dpr = next;
       this.renderer.setPixelRatio(next);
       this.resize();
+      this._settle = 30;
     }
   }
 
   renderOnce() {
     this._update(this.progress);
     this.renderer.render(this.scene, this.camera);
+    this._drawn = true;
   }
 
   dispose() {
+    this.disposed = true;
     this.stop();
     [this.geometry, this.planeGeo, this.trailGeo, this.tickGeo, this.ballGeo, this.ringGeo].forEach((g) => g.dispose());
     [this.material, this.planeMat, this.trailMat, this.tickMat, this.ballMat, this.ringMat].forEach((m) => m.dispose());

@@ -95,7 +95,7 @@ export const experience = [
     role: 'AI/ML Intern',
     org: 'Cerence AI · Remote, Burlington, MA',
     summary:
-      'I work on the machine learning behind a multi-agent voice assistant, building synthetic training data and fine-tuning the models that classify and route what users ask. I also optimize those models for fast CPU inference and fit them into the live assistant pipeline. I also studied the tradeoff in GPU utilization vs. TTFT/ITL of high concurrency LLM serving.',
+      'I work on the machine learning behind a multi-agent voice assistant, building synthetic training data and fine-tuning models that classify and route what users ask. I also optimize those models for fast CPU inference and fit them into the live assistant pipeline. I also studied the tradeoff in GPU utilization vs. TTFT/ITL of high concurrency LLM serving.',
     tools: ['Python', 'PyTorch', "vLLM", "SFT",  'LoRA', 'ONNX Runtime', 'Synthetic data generation'],
     gallery: [
       { src: cerenceLogo, alt: 'Cerence logo', caption: 'Cerence AI Gallery', pad: true, width: 600, height: 309 }, // cover
