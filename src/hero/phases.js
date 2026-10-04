@@ -29,7 +29,7 @@ const HOLDS = [
   [0.88, 1.04], // gradient descent + "I'm interested in AI/ML"
   [1.2, 1.28], //  empty grid + "Let's zoom in…"
 ];
-const HOLD_WEIGHT = 3;
+const HOLD_WEIGHT = 7;
 
 // piecewise-linear map: knots of (cumulative scroll, progress)
 const PACE = (() => {

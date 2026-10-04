@@ -6,7 +6,7 @@ import { loss, descentPath, LOSS_SCALE } from './landscape.js';
 
 const ACCENT = new THREE.Color(SCHEME.particle);
 const ZOOM_START = 1.28; // progress at which the final zoom begins (see phases.js)
-const MAX_RATE = 0.6; // max progress per second — a flick can't skip a phase
+const MAX_RATE = 0.9; // max progress per second — a flick can't skip a phase
 const SMOOTHING = 5.0;
 
 /**
@@ -46,7 +46,9 @@ export default class SurfaceScene {
     // the discrete GPU, which can flicker the whole screen; this scene is light
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias, alpha: false, powerPreference: 'default' });
     this.renderer.setClearColor(0xffffff, 1);
-    this.maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2);
+    // resolution cap: a little under full Retina — the fluid is soft, so the
+    // difference is hard to see, and it saves ~25% of the pixels to draw
+    this.maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.4 : 1.4);
     this.dpr = this.maxDpr;
     this.renderer.setPixelRatio(this.dpr);
 
