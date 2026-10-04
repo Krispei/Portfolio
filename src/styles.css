@@ -292,6 +292,14 @@ ul, ol { list-style: none; }
 .gallery.open .cover-shade { background: transparent; }
 .gallery.open .cover-btn:hover .cover-shade { background: rgba(14, 15, 17, 0.12); }
 .cover-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+/* with a mouse, the grey and "Click to expand" only appear on hover (or keyboard
+   focus); touch screens can't hover, so there they stay visible */
+@media (hover: hover) {
+  .cover-shade { background: transparent; }
+  .cover-btn:hover .cover-shade, .cover-btn:focus-visible .cover-shade { background: rgba(14, 15, 17, 0.36); }
+  .cover-label { opacity: 0; transition: opacity 0.25s ease; }
+  .cover-btn:hover .cover-label, .cover-btn:focus-visible .cover-label { opacity: 1; }
+}
 
 /* the rest of the photos drop down below the cover */
 .gallery-more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.5s cubic-bezier(.2,.7,.2,1); }
@@ -362,7 +370,7 @@ ul, ol { list-style: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .side-menu, .menu-scrim { transition: none; }
-  .gallery-more, .cover-shade, .shot-link::after, .hero-keep { transition: none; }
+  .gallery-more, .cover-shade, .cover-label, .shot-link::after, .hero-keep { transition: none; }
   .hero-keep.show span { animation: none; }
   .hero-canvas { transition: none; }
 }

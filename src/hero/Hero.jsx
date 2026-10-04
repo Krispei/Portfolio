@@ -265,7 +265,7 @@ export default function Hero() {
         </div>
 
         <div className="hero-text hero-physics" ref={set('physics')}>
-          <h1>I Study Computational Physics</h1>
+          <h1>I study Computational Physics</h1>
           <p>At Stanford University</p>
         </div>
 
