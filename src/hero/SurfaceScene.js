@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import { planeVertex, planeFragment, fieldVertex, fieldFragment, vortexParams } from './shaders.js';
 import { SCHEME, bakeColormap } from './colormaps.js';
-import { surfaceParams, cameraParams, timeRate, descentProgress, overlayParams, sideWeight, textBand, zoomWeight, PMAX } from './phases.js';
+import { surfaceParams, cameraParams, timeRate, descentProgress, overlayParams, sideWeight, PMAX } from './phases.js';
 import { loss, descentPath, LOSS_SCALE } from './landscape.js';
 
 const ACCENT = new THREE.Color(SCHEME.particle);
-const ZOOM_START = 1.28; // progress at which the final zoom begins (see phases.js)
 const MAX_RATE = 0.9; // max progress per second — a flick can't skip a phase
 const SMOOTHING = 5.0;
 
@@ -15,7 +14,10 @@ const SMOOTHING = 5.0;
  * is scrubbable in both directions but never jumps.
  */
 export default class SurfaceScene {
-  constructor(canvas, { reducedMotion = false, onFrame } = {}) {
+  // `render` (used by tools/render-frames to bake the hero into images):
+  // { pixelRatio, segments, tickSize } override the device-based defaults
+  constructor(canvas, { reducedMotion = false, onFrame, render = null } = {}) {
+    this.render = render;
     this.canvas = canvas;
     this.reducedMotion = reducedMotion;
     this.onFrame = onFrame;
@@ -35,6 +37,7 @@ export default class SurfaceScene {
   }
 
   _init() {
+    const { render } = this;
     const { canvas } = this;
     const mobile = Math.min(window.innerWidth, window.innerHeight) < 700;
 
@@ -45,10 +48,10 @@ export default class SurfaceScene {
     // 'default' GPU: asking for 'high-performance' makes dual-GPU Macs switch to
     // the discrete GPU, which can flicker the whole screen; this scene is light
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias, alpha: false, powerPreference: 'default' });
-    this.renderer.setClearColor(0xffffff, 1);
+    this.renderer.setClearColor(0xf7faf9, 1); // = --bg in styles.css
     // resolution cap: a little under full Retina — the fluid is soft, so the
     // difference is hard to see, and it saves ~25% of the pixels to draw
-    this.maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.4 : 1.4);
+    this.maxDpr = render?.pixelRatio ?? Math.min(window.devicePixelRatio || 1, mobile ? 1.4 : 1.4);
     this.dpr = this.maxDpr;
     this.renderer.setPixelRatio(this.dpr);
 
@@ -114,7 +117,7 @@ export default class SurfaceScene {
     // the field: one continuous surface — fluid, then loss landscape
     // fewer vertices on phones and on devices that report little CPU / memory
     const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
-    const seg = mobile ? 170 : weak ? 220 : 300;
+    const seg = render?.segments ?? (mobile ? 170 : weak ? 220 : 300);
     this.geometry = new THREE.PlaneGeometry(10, 10, seg, seg);
     // only positions are used (normals are computed in the shader)
     this.geometry.deleteAttribute('normal');
@@ -165,7 +168,7 @@ export default class SurfaceScene {
     this.tickEvery = every;
     this.tickGeo = new THREE.BufferGeometry();
     this.tickGeo.setAttribute('position', new THREE.BufferAttribute(ticks, 3));
-    this.tickMat = new THREE.PointsMaterial({ color: 0xffffff, size: 3, sizeAttenuation: false, transparent: true, opacity: 0 });
+    this.tickMat = new THREE.PointsMaterial({ color: 0xffffff, size: render?.tickSize ?? 3, sizeAttenuation: false, transparent: true, opacity: 0 });
     this.ticks = new THREE.Points(this.tickGeo, this.tickMat);
     this.ticks.frustumCulled = false;
     this.pathGroup.add(this.ticks);
@@ -292,7 +295,7 @@ export default class SurfaceScene {
   }
 
   // Where the graphic is framed (region R of the canvas) and how far the camera
-  // must sit, before any zoom, for the content to fit there.
+  // must sit for the content to fit there.
   _frame(p) {
     const W = this.width, H = this.height;
     const TAN = Math.tan((34 * Math.PI) / 360);
@@ -302,22 +305,13 @@ export default class SurfaceScene {
     // The graphic is framed inside a region of the canvas: the whole canvas
     // when no text is up, the area beside / below the text when there is.
     const L = this.layout || { mode: 'side', region: { x: 0, y: 0, w: W, h: H } };
-    const wgt = L.mode === 'stack' ? textBand(p) : sideWeight(p);
+    const wgt = L.mode === 'stack' ? 1 : sideWeight(p); // stack: the text band is always up
     const R = {
       x: L.region.x * wgt,
       y: L.region.y * wgt,
       w: W + (L.region.w - W) * wgt,
       h: H + (L.region.h - H) * wgt,
     };
-    // while the "Let's zoom in…" header is up, frame the graphic below it
-    const zw = zoomWeight(p);
-    if (zw > 0 && this.layout?.zoomRegion) {
-      const Z = this.layout.zoomRegion;
-      R.x += (Z.x - R.x) * zw;
-      R.y += (Z.y - R.y) * zw;
-      R.w += (Z.w - R.w) * zw;
-      R.h += (Z.h - R.h) * zw;
-    }
 
     // Distance: pick the closest camera for which the content still fits R
     // with a margin. Content half-extents: the disc is 5 wide; its projected
@@ -337,36 +331,26 @@ export default class SurfaceScene {
     for (const k in s) u[k].value = s[k];
     u.uTime.value = this.time;
     if (u.uSwirl.value > 0.0005) vortexParams(this.time, u.uVort.value);
-    // the fluid layer (and the descent drawn on it) is invisible at the start and
-    // in the 2D ending: don't even run its ~90k vertices then
+    // the fluid layer (and the descent drawn on it) is invisible at the start:
+    // don't even run its ~90k vertices then
     this.mesh.visible = u.uFluid.value > 0.002;
 
     // camera on a sphere around the target
     const cam = this.camera;
     const W = this.width, H = this.height;
     const TAN = Math.tan((34 * Math.PI) / 360); // every region is framed at 34° vertical
-    const { c, R, d0 } = this._frame(p);
-    let d = d0;
-    let zoomScale = 1;
-    if (c.zoom > 0) {
-      // final distance: the whole canvas fits inside one grid cell (0.25 wide)
-      const dEnd = 0.1 / (TAN * Math.max(1, W / H));
-      d = d0 * Math.pow(dEnd / d0, c.zoom);
-      // how much the view has magnified since the zoom began (the header
-      // text uses this to zoom along with the grid)
-      zoomScale = this._frame(ZOOM_START).d0 / d;
-    }
+    const { c, R, d0: d } = this._frame(p);
     // Emulate a 34° camera framed in R using the full canvas: widen the FOV so
     // R's height maps to the full height, then shift R's centre to the middle
     cam.aspect = W / H;
     cam.fov = (2 * Math.atan((TAN * H) / R.h) * 180) / Math.PI;
     const sinE = Math.sin(c.elevation), cosE = Math.cos(c.elevation);
     cam.position.set(
-      c.cellX + d * cosE * Math.sin(c.azimuth),
+      d * cosE * Math.sin(c.azimuth),
       d * sinE + c.targetY,
-      c.cellZ + d * cosE * Math.cos(c.azimuth),
+      d * cosE * Math.cos(c.azimuth),
     );
-    cam.lookAt(c.cellX, c.targetY, c.cellZ);
+    cam.lookAt(0, c.targetY, 0);
     const cx = R.x + R.w / 2, cy = R.y + R.h / 2; // where the graphic is centred on screen
     const dx = cx - W / 2, dy = cy - H / 2;
     if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) cam.setViewOffset(W, H, -dx, -dy, W, H);
@@ -394,7 +378,7 @@ export default class SurfaceScene {
     this.ticks.geometry.setDrawRange(0, Math.floor(i / this.tickEvery) + 1);
     this.ball.visible = this.ring.visible = this.trail.visible = this.ticks.visible = o.particle > 0.001;
 
-    this.onFrame?.({ progress: p, zoomScale, cx, cy });
+    this.onFrame?.({ progress: p });
   }
 
   // Drop resolution if frames are slow; recover when there is headroom. Each

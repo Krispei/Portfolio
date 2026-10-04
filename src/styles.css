@@ -1,8 +1,8 @@
 :root {
-  --bg: #ffffff;
+  --bg: #f7faf9;
   --ink: #141517;
   --ink-2: #3c3f44;
-  --muted: #6b7079; /* ≥4.5:1 on white (WCAG AA for body-size text) */
+  --muted: #6b7079; /* ≥4.5:1 on the background (WCAG AA for body-size text) */
   --rule: #e6e7e9;
   --rule-2: #f1f2f3;
   --accent: #c8402a;
@@ -38,7 +38,7 @@ ul, ol { list-style: none; }
   height: 64px;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 var(--gutter);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(247, 250, 249, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -128,14 +128,14 @@ ul, ol { list-style: none; }
   font: 300 clamp(50px, 4.6vw, 90px)/1.02 var(--serif);
   letter-spacing: -0.025em;
   text-wrap: balance;
-  text-shadow: 0 0 28px #fff, 0 0 10px #fff, 0 0 3px #fff;
+  text-shadow: 0 0 28px var(--bg), 0 0 10px var(--bg), 0 0 3px var(--bg);
 }
 .hero--stack .hero-text h1, .hero--stack .hero-text h2 { font-size: clamp(30px, 7.5vw, 56px); }
 .hero-text p {
   margin-top: 16px;
   font: 300 20px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-2);
-  text-shadow: 0 0 12px #fff;
+  text-shadow: 0 0 12px var(--bg);
 }
 .hero-ai p { text-transform: none; letter-spacing: 0.01em; font-size: 20px; max-width: 34ch; }
 .hero-ai .hero-sub { margin-top: 28px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 16px; color: var(--muted); }
@@ -161,7 +161,7 @@ ul, ol { list-style: none; }
   transform: translateX(-50%) scale(0.94); opacity: 0;
   transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.2,.7,.2,1);
   font: 300 14px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
-  text-shadow: 0 0 8px #fff, 0 0 4px #fff, 0 0 2px #fff; white-space: nowrap;
+  text-shadow: 0 0 8px var(--bg), 0 0 4px var(--bg), 0 0 2px var(--bg); white-space: nowrap;
 }
 .hero-keep.show { opacity: 1; transform: translateX(-50%) scale(1); }
 /* once it has popped in, the text breathes: a slow fade (down to 60%) + tiny swell, looping */
@@ -175,15 +175,10 @@ ul, ol { list-style: none; }
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4;
   padding: 12px 18px; background: none; border: 0; cursor: pointer;
   font: 300 14px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2);
-  text-shadow: 0 0 8px #fff, 0 0 4px #fff, 0 0 2px #fff;
+  text-shadow: 0 0 8px var(--bg), 0 0 4px var(--bg), 0 0 2px var(--bg);
   transition: color 0.2s;
 }
 .hero-skip:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 5px; }
-.hero-zoom {
-  position: absolute; left: 0; right: 0; top: var(--zoom-top, 96px); z-index: 2;
-  text-align: center; opacity: 0; pointer-events: none; /* no will-change: it must stay crisp when scaled up */
-}
-.hero-zoom h2 { font: 300 clamp(34px, 5vw, 72px)/1.05 var(--serif); letter-spacing: -0.025em; }
 .hero--stack .hero-hint { top: calc(var(--band, 248px) - 8px); transform: translate(-50%, -100%); }
 
 /* ── portfolio ──────────────────────────────────────────── */

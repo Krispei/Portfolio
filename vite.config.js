@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { readdirSync, rmSync } from 'node:fs';
+import { readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // macOS Finder keeps re-creating .DS_Store files in public/; never ship them
@@ -19,12 +19,27 @@ const stripDsStore = () => ({
   },
 });
 
-export default defineConfig({
-  plugins: [react(), stripDsStore()],
-  build: {
-    target: 'es2020',
-    rollupOptions: {
-      output: { manualChunks: { three: ['three'] } },
-    },
+// dev only: tools/render-frames.html posts each baked hero frame here, and it's
+// written to .frames-src/ for tools/encode-frames.py
+const saveFrames = () => ({
+  name: 'save-frames',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use('/__save-frame', (req, res) => {
+      const url = new URL(req.url, 'http://x');
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        mkdirSync('.frames-src', { recursive: true });
+        const name = url.searchParams.has('meta') ? 'meta.json' : `${url.searchParams.get('i').padStart(4, '0')}.png`;
+        writeFileSync(join('.frames-src', name), Buffer.concat(chunks));
+        res.end('ok');
+      });
+    });
   },
+});
+
+export default defineConfig({
+  plugins: [react(), stripDsStore(), saveFrames()],
+  build: { target: 'es2020' },
 });

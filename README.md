@@ -1,15 +1,17 @@
 # Wonu Park — portfolio
 
-React + Vite + Three.js. The hero is a single procedural surface `z = f(x, y; progress)`
-rendered in one GLSL vertex shader, drawn over a fixed coordinate plane; scroll
-position drives `progress`. After the descent the landscape flattens into a 2D heat
-map, the grid returns, and the camera zooms into one grid cell until the screen is
-white; only then does the normal page begin.
+React + Vite. The hero is a single procedural surface `z = f(x, y; progress)`
+over a fixed coordinate plane; scroll position drives `progress`. The surface is
+built in Three.js/GLSL, but visitors never run it: it's baked into a sequence of
+frames that the site plays back (see **Hero frames** below). The sequence ends on the finished gradient descent with
+the "I'm interested in AI/ML" text; from there the page scrolls on normally,
+carrying that last screen up and away as the content sections arrive.
 
 **Layout:** `Hero.jsx` measures the hero text and picks `side` (text column on the
 left, graphic framed in the area to its right) or `stack` (text band on top,
 graphic below) — whichever gives the graphic more room — so text never overlaps
-it. `SurfaceScene.js` frames the graphic inside that region at every window size.
+it. `FramePlayer.js` places and sizes the frames inside that region at every
+window size, using the same framing rules as the 3D camera.
 
 **Colours:** set `SCHEME` in `src/hero/colormaps.js` (`viridis`, `magma`, `plasma`,
 `cividis`, `deep`, `ink`, `coolwarm`, `dusk`, or your own list of hex stops).
@@ -31,12 +33,32 @@ npm run build     # static site in dist/
 | `src/hero/shaders.js` | Fixed grid plane + the field layer: vortex flow map, waves, turbulence, loss landscape, and colormap shading. |
 | `src/hero/colormaps.js` | Colour scheme presets, OKLab-interpolated into lookup textures. |
 | `src/hero/landscape.js` | CPU copy of the loss function + gradient-descent path. Must stay in sync with `lossField()` in `shaders.js`. |
-| `src/hero/SurfaceScene.js` | WebGL setup, damped/rate-limited progress, adaptive resolution, disposal. |
+| `src/hero/FramePlayer.js` | **What the site runs**: streams the baked frames, cross-fades between them on a 2D canvas, places them like the 3D camera did. |
+| `src/hero/SurfaceScene.js` | The live 3D scene (WebGL). Only used by the frame renderer now. |
 | `src/hero/Hero.jsx` | Sticky scroll section, overlays, wheel limiter, visibility/cleanup. |
 
 Put `resume.pdf` in `public/` and set `profile.resume` to `'/resume.pdf'`.
 
 **Deploying:** `npm run build` and upload `dist/`. The canonical URL, Open Graph URL, `robots.txt` and `sitemap.xml` assume `https://wonupark.com/` — change them in `index.html` and `public/` if the site lives elsewhere.
+
+## Hero frames
+
+The hero graphic is a film: 261 square frames (one per 0.004 of progress) in
+`public/hero-frames/d/` (1024 px, ~6 MB, desktop) and `public/hero-frames/m/`
+(640 px, ~3 MB, phones), described by `src/hero/frames.json`. They load nearest
+to the visitor's position first, so the page is usable right away.
+
+After changing anything in the 3D scene (`phases.js`, `shaders.js`,
+`colormaps.js`, `landscape.js`, `SurfaceScene.js`), re-bake the frames:
+
+1. `npm run dev`, then open http://localhost:5173/tools/render-frames.html and
+   wait for "done" (it writes PNGs to `.frames-src/`).
+2. `python3 tools/encode-frames.py` (needs Pillow) to write the WebP sets and
+   `frames.json`. Then `.frames-src/` can be deleted.
+
+Frame size and quality are at the top of `tools/encode-frames.py`; how lively
+the turbulence is (`TIME_PER_P`) and the frame spacing are at the top of
+`tools/render-frames.js`.
 
 ## Experience galleries
 

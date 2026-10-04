@@ -330,7 +330,7 @@ void main() {
   alpha *= uFluid * (1.0 - smoothstep(0.9, 0.995, r));
 
   float fog = smoothstep(1.0, 8.5, length(uCamPos - vWorld) - length(uCamPos));
-  col = mix(col, vec3(1.0), fog);
+  col = mix(col, vec3(0.9686, 0.9804, 0.9765), fog); // fades into the page background (#f7faf9)
 
   gl_FragColor = vec4(col, alpha);
 }

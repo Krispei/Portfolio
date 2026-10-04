@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { overlayParams, PMAX, progressAt, ss } from './phases.js';
+import { overlayParams, PMAX, progressAt } from './phases.js';
 
 const SCROLL_VH_PER_P = 300; // scroll distance per unit of progress
-const END = 0.98; // the last 4% of the hero holds the final (white) screen
+const END = 0.98; // the last 2% of the hero holds the final screen before the page scrolls on
 const HERO_VH = Math.round((PMAX * SCROLL_VH_PER_P) / END + 100);
 const DISPOSE_AFTER_MS = 4000;
 const MAX_LEAD = 0.06; // how far scroll may run ahead of the rendered progress
@@ -14,10 +14,10 @@ const prefersReducedMotion = () =>
 
 export default function Hero() {
   const reduced = useRef(prefersReducedMotion()).current;
-  // if WebGL can't start (old/blocked GPU), fall back to a short static intro
+  // if the graphic can't start (no canvas support), fall back to a short static intro
   // instead of 13 screens of empty scrolling
-  const [noGL, setNoGL] = useState(false);
-  const isStatic = reduced || noGL;
+  const [noCanvas, setNoCanvas] = useState(false);
+  const isStatic = reduced || noCanvas;
   const sectionRef = useRef(null);
   const stageRef = useRef(null);
   const ui = useRef({});
@@ -30,7 +30,7 @@ export default function Hero() {
     let loading = null;
     let visible = true;
     let disposeTimer = 0;
-    let glFailed = false;
+    let failed = false;
 
     // Decide where the text goes and where the graphic gets to live.
     //   side:  text in a column on the left, graphic in the area to its right
@@ -38,7 +38,6 @@ export default function Hero() {
     // Both are measured from the real text, then whichever leaves the graphic
     // more room wins, so text and graphic can never overlap.
     let layout = null;
-    let zoomTop = 96; // px, where the "Let's zoom in…" header sits
     const computeLayout = () => {
       const W = stage.clientWidth, H = stage.clientHeight;
       const HEADER = 72, PAD = 104; // PAD keeps the graphic clear of the Skip button, progress bar and hint
@@ -78,17 +77,8 @@ export default function Hero() {
       const discTop = stackR.y + stackR.h / 2 - discR;
       const gap = (discTop - 64 - textH) / 2;
       stage.style.setProperty('--text-top', `${gap >= 16 ? Math.round(64 + gap) : 88}px`);
-      // the "Let's zoom in…" header: reserve a strip for it above the grid,
-      // and centre it in the gap between the header and the top of the disc
-      const zh = el.zoom.offsetHeight;
-      const zy = 64 + zh + 56;
-      const zoomRegion = { x: 0, y: zy, w: W, h: H - zy - PAD };
-      const zDiscTop = zoomRegion.y + zoomRegion.h / 2 - 5 * ppu(zoomRegion, 5);
-      const zGap = (zDiscTop - 64 - zh) / 2;
-      zoomTop = zGap >= 12 ? Math.round(64 + zGap) : 76;
-      stage.style.setProperty('--zoom-top', `${zoomTop}px`);
 
-      layout = { mode: side ? 'side' : 'stack', region: side ? sideR : stackR, zoomRegion };
+      layout = { mode: side ? 'side' : 'stack', region: side ? sideR : stackR };
       scene?.setLayout(layout);
     };
     computeLayout();
@@ -114,25 +104,17 @@ export default function Hero() {
     };
     const op = (v) => (v < 0.002 ? '0' : v > 0.998 ? '1' : v.toFixed(3));
 
-    const onFrame = ({ progress: p, zoomScale = 1, cx = 0, cy = 0 }) => {
+    const onFrame = ({ progress: p }) => {
       const o = overlayParams(p);
       put(el.hint, 'opacity', op(o.hint));
       put(el.physics, 'opacity', op(o.physics));
       put(el.ai, 'opacity', op(o.ai));
       put(el.bar, 'transform', `scaleX(${Math.min(1, p / PMAX).toFixed(4)})`);
-      // the header zooms with the grid: it magnifies about the graphic's centre,
-      // so it grows and flies off the top of the screen as the camera dollies in
-      const zo = op(o.zoom * (1 - ss(2.2, 5, zoomScale)));
-      put(el.zoom, 'opacity', zo);
-      if (zo !== '0') {
-        put(el.zoom, 'transformOrigin', `${cx.toFixed(1)}px ${(cy - zoomTop).toFixed(1)}px`);
-        put(el.zoom, 'transform', zoomScale > 1.001 ? `scale(${zoomScale.toFixed(4)})` : 'none'); // fades in place, no slide
-      }
     };
 
     const ensureScene = async () => {
-      if (scene || loading || glFailed) return loading;
-      loading = import('./SurfaceScene.js').then(({ default: SurfaceScene }) => {
+      if (scene || loading || failed) return loading;
+      loading = import('./FramePlayer.js').then(({ default: FramePlayer }) => {
         // a fresh canvas each time: a disposed context cannot be reused
         const canvas = document.createElement('canvas');
         canvas.className = 'hero-canvas';
@@ -140,18 +122,18 @@ export default function Hero() {
         stage.prepend(canvas);
         let s;
         try {
-          s = scene = new SurfaceScene(canvas, { reducedMotion: reduced, onFrame });
+          s = scene = new FramePlayer(canvas, { reducedMotion: reduced, onFrame, progress: scrollTarget() });
         } catch {
           canvas.remove();
-          glFailed = true;
+          failed = true;
           loading = null;
-          setNoGL(true);
+          setNoCanvas(true);
           return;
         }
-        // show it only once its shaders are compiled, so the first frames don't stall
+        // show it once the frame for the current position has loaded
         return s.ready.then(() => {
           loading = null;
-          if (scene !== s) return; // released while compiling
+          if (scene !== s) return; // released while loading
           s.setLayout(layout);
           s.setTarget(scrollTarget());
           s.progress = s.target; // arrive at the right state on (re)load
@@ -216,7 +198,7 @@ export default function Hero() {
       if (reduced) scene.renderOnce();
     };
 
-    // render only while the hero is on screen; free the GPU once it's been gone a while
+    // draw only while the hero is on screen; free the frames once it's been gone a while
     const io = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
       clearTimeout(disposeTimer);
@@ -290,10 +272,6 @@ export default function Hero() {
           </>
         )}
         <button type="button" className="hero-skip" onClick={skip}>Skip intro</button>
-
-        <div className="hero-zoom" ref={set('zoom')}>
-          <h2>Let’s zoom in…</h2>
-        </div>
 
         <div className="hero-text hero-ai" ref={set('ai')}>
           <h2>I’m interested in AI/ML</h2>
