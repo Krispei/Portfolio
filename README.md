@@ -39,7 +39,7 @@ npm run build     # static site in dist/
 
 Put `resume.pdf` in `public/` and set `profile.resume` to `'/resume.pdf'`.
 
-**Deploying:** `npm run build` and upload `dist/`. The canonical URL, Open Graph URL, `robots.txt` and `sitemap.xml` assume `https://wonupark.com/` — change them in `index.html` and `public/` if the site lives elsewhere.
+**Deploying:** `npm run build` and upload `dist/`. The canonical URL, Open Graph URL, `robots.txt` and `sitemap.xml` assume `https://www.wonupark.com/` — change them in `index.html` and `public/` if the site lives elsewhere.
 
 ## Hero frames
 

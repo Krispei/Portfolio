@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://wonupark.com/sitemap.xml
+Sitemap: https://www.wonupark.com/sitemap.xml
