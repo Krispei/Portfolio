@@ -45,8 +45,15 @@ Put `resume.pdf` in `public/` and set `profile.resume` to `'/resume.pdf'`.
 
 The hero graphic is a film: 261 square frames (one per 0.004 of progress) in
 `public/hero-frames/d/` (1024 px, ~6 MB, desktop) and `public/hero-frames/m/`
-(640 px, ~3 MB, phones), described by `src/hero/frames.json`. They load nearest
-to the visitor's position first, so the page is usable right away.
+(640 px, ~3 MB, phones), described by `src/hero/frames.json`. They load coarse
+to fine (the frames around the visitor first, then every 16th, 8th, … frame) and
+missing ones are blended from their neighbours, so the whole intro plays within a
+second or two and sharpens as the rest arrive. Frame URLs carry the set's
+fingerprint (`version`), so `vercel.json` lets browsers cache them for a year.
+
+The loading screen is inline in `index.html`; `src/loading.js` fades it out once
+the first frame and the fonts are in (6 s at most). It only becomes visible if
+loading takes longer than 0.3 s.
 
 After changing anything in the 3D scene (`phases.js`, `shaders.js`,
 `colormaps.js`, `landscape.js`, `SurfaceScene.js`), re-bake the frames:

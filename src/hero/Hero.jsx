@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { overlayParams, PMAX, progressAt } from './phases.js';
+import FramePlayer from './FramePlayer.js'; // small: loaded with the page so the frames start sooner
+import { markHeroReady } from '../loading.js';
 
 const SCROLL_VH_PER_P = 300; // scroll distance per unit of progress
 const END = 0.98; // the last 2% of the hero holds the final screen before the page scrolls on
@@ -114,7 +116,7 @@ export default function Hero() {
 
     const ensureScene = async () => {
       if (scene || loading || failed) return loading;
-      loading = import('./FramePlayer.js').then(({ default: FramePlayer }) => {
+      loading = Promise.resolve().then(() => {
         // a fresh canvas each time: a disposed context cannot be reused
         const canvas = document.createElement('canvas');
         canvas.className = 'hero-canvas';
@@ -128,6 +130,7 @@ export default function Hero() {
           failed = true;
           loading = null;
           setNoCanvas(true);
+          markHeroReady();
           return;
         }
         // show it once the frame for the current position has loaded
@@ -140,6 +143,7 @@ export default function Hero() {
           if (reduced) s.renderOnce();
           else if (visible && !document.hidden) s.start();
           requestAnimationFrame(() => canvas.classList.add('ready'));
+          markHeroReady();
         });
       });
       return loading;

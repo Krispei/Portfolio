@@ -13,10 +13,11 @@ import manifest from './frames.json';
 
 const MAX_RATE = 0.9; // max progress per second — a flick can't skip a phase
 const SMOOTHING = 5.0;
-const CONCURRENT = 6; // frame downloads in flight at once
+const CONCURRENT = 8; // frame downloads in flight at once (HTTP/2 multiplexes them)
+const NEAR = 3; // frames either side of the visitor's position that load first
 const FEATHER = 0.07; // fraction of the frame, at each edge, faded into the page
 
-const { count, step, sets, bg } = manifest;
+const { count, step, bg, version } = manifest;
 const frameIndex = (p) => Math.min(count - 1, Math.max(0, p / step));
 
 export default class FramePlayer {
@@ -35,15 +36,18 @@ export default class FramePlayer {
     this._last = 0;
     this._loop = this._loop.bind(this);
 
-    // phones (and low-memory devices) get the smaller set
-    const small = Math.min(window.innerWidth, window.innerHeight) < 700 || (navigator.deviceMemory || 8) <= 4;
+    // phones, low-memory devices and slow or data-saving connections get the smaller set
+    const net = navigator.connection || {};
+    const small = Math.min(window.innerWidth, window.innerHeight) < 700
+      || (navigator.deviceMemory || 8) <= 4
+      || net.saveData || /(^|-)2g|3g/.test(net.effectiveType || '');
     this.set = small ? 'm' : 'd';
     this.frames = new Array(count).fill(null); // HTMLImageElement once loaded
     this.pending = new Set();
 
     this.resize();
     // ready once the frame for the starting position is in; the rest stream in
-    // behind it, nearest to the current position first
+    // behind it (see _pump for the order)
     const first = Math.round(frameIndex(this.target));
     this.ready = this._fetch(first).then(() => { this._pump(); });
   }
@@ -53,7 +57,7 @@ export default class FramePlayer {
     this.pending.add(i);
     const img = new Image();
     img.decoding = 'async';
-    img.src = `/hero-frames/${this.set}/${String(i).padStart(4, '0')}.webp`;
+    img.src = `/hero-frames/${this.set}/${String(i).padStart(4, '0')}.webp?v=${version}`;
     return img.decode().then(
       () => {
         this.pending.delete(i);
@@ -66,30 +70,38 @@ export default class FramePlayer {
     );
   }
 
-  // keep CONCURRENT downloads going, always picking the missing frame
-  // nearest to where the visitor is now
+  // Load order, coarse to fine: first the few frames around the visitor's
+  // position, then every 16th frame of the whole film, then every 8th, 4th, 2nd
+  // and the rest (each pass nearest-first). Missing frames are blended from
+  // their loaded neighbours, so within a second or two the whole intro plays,
+  // just with fewer in-betweens, and it sharpens as the rest arrive.
+  _rank(i, at) {
+    const dist = Math.abs(i - at);
+    if (dist <= NEAR) return dist;
+    let level = 16;
+    while (level > 1 && i % level) level /= 2; // 16, 8, 4, 2 or 1
+    return (5 - Math.log2(level)) * 10000 + dist; // pass 0 is every 16th frame
+  }
+
+  // keep CONCURRENT downloads going, always taking the best-ranked missing frame
   _pump() {
     if (!this.frames) return;
     const at = Math.round(frameIndex(this.target));
     while (this.pending.size < CONCURRENT) {
-      let next = -1;
-      for (let d = 0; d < count && next < 0; d++) {
-        for (const i of [at + d, at - d]) {
-          if (i >= 0 && i < count && !this.frames[i] && !this.pending.has(i)) { next = i; break; }
-        }
+      let next = -1, best = Infinity;
+      for (let i = 0; i < count; i++) {
+        if (this.frames[i] || this.pending.has(i)) continue;
+        const r = this._rank(i, at);
+        if (r < best) { best = r; next = i; }
       }
       if (next < 0) return;
       this._fetch(next).then(() => this._pump());
     }
   }
 
-  _nearest(i) {
-    for (let d = 0; d < count; d++) {
-      if (this.frames[i - d]) return this.frames[i - d];
-      if (this.frames[i + d]) return this.frames[i + d];
-    }
-    return null;
-  }
+  // nearest loaded frame at or below / at or above index i (-1 if none)
+  _below(i) { for (let k = i; k >= 0; k--) if (this.frames[k]) return k; return -1; }
+  _above(i) { for (let k = i; k < count; k++) if (this.frames[k]) return k; return -1; }
 
   // ── framing ─────────────────────────────────────────────────────────────
   // Where the frame goes: centre (cx, cy) and size D in CSS px. The live camera
@@ -120,18 +132,21 @@ export default class FramePlayer {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, this.width, this.height);
 
+    // cross-fade the loaded frames either side of this position (normally the
+    // two adjacent ones; further apart while the film is still loading)
     const f = frameIndex(p);
-    const i = Math.floor(f), a = f - i;
-    const A = this.frames[i] || this._nearest(i);
-    if (A) {
+    let lo = this._below(Math.floor(f)), hi = this._above(Math.ceil(f));
+    if (lo < 0) lo = hi;
+    if (hi < 0) hi = lo;
+    if (lo >= 0) {
+      const w = hi > lo ? (f - lo) / (hi - lo) : 0;
       const { cx, cy, D } = this._place(p);
       const x = cx - D / 2, y = cy - D / 2;
       ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(A, x, y, D, D);
-      const B = a > 0.02 && this.frames[i + 1];
-      if (B) {
-        ctx.globalAlpha = a;
-        ctx.drawImage(B, x, y, D, D);
+      ctx.drawImage(this.frames[lo], x, y, D, D);
+      if (w > 0.02) {
+        ctx.globalAlpha = w;
+        ctx.drawImage(this.frames[hi], x, y, D, D);
         ctx.globalAlpha = 1;
       }
       // compression shifts the frame's flat background by a level or two:

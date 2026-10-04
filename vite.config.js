@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readdirSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // macOS Finder keeps re-creating .DS_Store files in public/; never ship them
@@ -39,7 +39,22 @@ const saveFrames = () => ({
   },
 });
 
+// start downloading the hero's first frame with the HTML, before any JS runs
+// (the right set for the screen: see FramePlayer.js)
+const preloadFirstFrame = () => ({
+  name: 'preload-first-frame',
+  transformIndexHtml() {
+    const { version } = JSON.parse(readFileSync('src/hero/frames.json', 'utf8'));
+    const link = (set, media) => ({
+      tag: 'link',
+      attrs: { rel: 'preload', as: 'image', type: 'image/webp', href: `/hero-frames/${set}/0000.webp?v=${version}`, media, fetchpriority: 'high' },
+      injectTo: 'head',
+    });
+    return [link('d', '(min-width: 700px) and (min-height: 700px)'), link('m', '(max-width: 699px), (max-height: 699px)')];
+  },
+});
+
 export default defineConfig({
-  plugins: [react(), stripDsStore(), saveFrames()],
+  plugins: [react(), stripDsStore(), saveFrames(), preloadFirstFrame()],
   build: { target: 'es2020' },
 });
