@@ -5,6 +5,9 @@ import { surfaceParams, cameraParams, timeRate, descentProgress, overlayParams, 
 import { loss, descentPath, LOSS_SCALE } from './landscape.js';
 
 const ACCENT = new THREE.Color(SCHEME.particle);
+// the red gradient-descent path and marker on the landscape (off: the AI/ML
+// screen shows the landscape alone). Set true to bring them back.
+const SHOW_DESCENT = false;
 const MAX_RATE = 0.9; // max progress per second — a flick can't skip a phase
 const SMOOTHING = 5.0;
 
@@ -376,7 +379,7 @@ export default class SurfaceScene {
     const seg = this.trailSeg[i] + (this.trailSeg[Math.min(i + 1, this.path.length - 1)] - this.trailSeg[i]) * f;
     this.trailGeo.setDrawRange(0, Math.round(seg) * this.trailStride);
     this.ticks.geometry.setDrawRange(0, Math.floor(i / this.tickEvery) + 1);
-    this.ball.visible = this.ring.visible = this.trail.visible = this.ticks.visible = o.particle > 0.001;
+    this.ball.visible = this.ring.visible = this.trail.visible = this.ticks.visible = SHOW_DESCENT && o.particle > 0.001;
 
     this.onFrame?.({ progress: p });
   }
