@@ -80,7 +80,13 @@ export default function Hero() {
       const gap = (discTop - 64 - textH) / 2;
       stage.style.setProperty('--text-top', `${gap >= 16 ? Math.round(64 + gap) : 88}px`);
 
-      layout = { mode: side ? 'side' : 'stack', region: side ? sideR : stackR };
+      // opening screen (side mode): keep the graphic below "Hi, I'm Wonu!" and
+      // its hint line, or on wide, short windows the two would overlap
+      const hintBottom = el.hint.getBoundingClientRect().bottom - stage.getBoundingClientRect().top;
+      const introY = Math.round(hintBottom + 24);
+      const introR = { x: 0, y: introY, w: W, h: Math.max(120, H - introY - PAD) };
+
+      layout = { mode: side ? 'side' : 'stack', region: side ? sideR : stackR, intro: introR };
       scene?.setLayout(layout);
     };
     computeLayout();

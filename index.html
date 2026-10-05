@@ -43,8 +43,8 @@
     <!-- loading screen: inline so it shows before any JS or CSS arrives;
          src/loading.js fades it out once the hero's first frame and the fonts are in -->
     <style>
-      html.is-loading { overflow: hidden; }
-      #loader { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #f7faf9; transition: opacity 0.5s ease, visibility 0.5s; }
+      html.is-loading, html.is-loading body { overflow: hidden; overscroll-behavior: none; }
+      #loader { position: fixed; inset: 0; z-index: 100; touch-action: none; display: grid; place-items: center; background: #f7faf9; transition: opacity 0.5s ease, visibility 0.5s; }
       #loader.done { opacity: 0; visibility: hidden; }
       /* the content only appears if loading takes a moment, so fast loads never flash it */
       #loader .ld { display: grid; justify-items: center; gap: 18px; opacity: 0; animation: ld-in 0.4s ease 0.3s forwards; }
@@ -58,6 +58,27 @@
         #loader .ld-bar::after { animation: none; width: 100%; }
       }
     </style>
+    <!-- Hold the page still while the loading screen is up. `overflow: hidden`
+         alone isn't enough in Safari: iOS ignores it for touch scrolling, and
+         trackpad momentum can still move the page. src/loading.js releases it. -->
+    <script>
+      (function () {
+        var keys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '];
+        var stop = function (e) { e.preventDefault(); };
+        var key = function (e) { if (keys.indexOf(e.key) >= 0) e.preventDefault(); };
+        var top = function () { if (window.scrollY !== 0) window.scrollTo(0, 0); };
+        window.addEventListener('wheel', stop, { passive: false });
+        window.addEventListener('touchmove', stop, { passive: false });
+        window.addEventListener('keydown', key);
+        window.addEventListener('scroll', top);
+        window.__releaseScroll = function () {
+          window.removeEventListener('wheel', stop);
+          window.removeEventListener('touchmove', stop);
+          window.removeEventListener('keydown', key);
+          window.removeEventListener('scroll', top);
+        };
+      })();
+    </script>
     <noscript><style>html.is-loading { overflow: auto; } #loader { display: none; }</style></noscript>
   </head>
   <body>

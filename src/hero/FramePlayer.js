@@ -1,4 +1,4 @@
-import { cameraParams, surfaceParams, sideWeight, PMAX } from './phases.js';
+import { cameraParams, surfaceParams, sideWeight, PMAX, ss } from './phases.js';
 import manifest from './frames.json';
 
 // The hero graphic as a pre-rendered film: tools/render-frames.html bakes the 3D
@@ -111,12 +111,21 @@ export default class FramePlayer {
   _place(p) {
     const W = this.width, H = this.height;
     const L = this.layout || { mode: 'side', region: { x: 0, y: 0, w: W, h: H } };
+    // with no text beside it, the graphic uses the whole stage — except at the
+    // very start, when it sits below the "Hi, I'm Wonu!" hint; it grows into the
+    // full stage as scrolling begins
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const full = { x: 0, y: 0, w: W, h: H };
+    const t0 = L.intro ? 1 - ss(0.02, 0.2, p) : 0;
+    const base = L.intro
+      ? { x: lerp(0, L.intro.x, t0), y: lerp(0, L.intro.y, t0), w: lerp(W, L.intro.w, t0), h: lerp(H, L.intro.h, t0) }
+      : full;
     const wgt = L.mode === 'stack' ? 1 : sideWeight(p);
     const R = {
-      x: L.region.x * wgt,
-      y: L.region.y * wgt,
-      w: W + (L.region.w - W) * wgt,
-      h: H + (L.region.h - H) * wgt,
+      x: lerp(base.x, L.region.x, wgt),
+      y: lerp(base.y, L.region.y, wgt),
+      w: lerp(base.w, L.region.w, wgt),
+      h: lerp(base.h, L.region.h, wgt),
     };
     const c = cameraParams(p), sp = surfaceParams(p);
     const amp = 0.5 + 1.2 * sp.uLoss * sp.uHeight;

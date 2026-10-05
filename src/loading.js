@@ -15,6 +15,7 @@ export function hideLoaderWhenReady() {
   const timeout = new Promise((r) => setTimeout(r, MAX_WAIT));
   Promise.race([Promise.all([hero, fonts]), timeout]).then(() => {
     document.documentElement.classList.remove('is-loading');
+    window.__releaseScroll?.(); // the scroll lock set up inline in index.html
     const el = document.getElementById('loader');
     if (!el) return;
     el.classList.add('done');
